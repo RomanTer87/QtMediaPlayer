@@ -173,6 +173,29 @@
     <string>Duration:</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="pushButtonMute">
+   <property name="geometry">
+    <rect>
+     <x>670</x>
+     <y>20</y>
+     <width>41</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QTableView" name="tableViewPlaylist">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>170</y>
+     <width>731</width>
+     <height>381</height>
+    </rect>
+   </property>
+  </widget>
  </widget>
  <resources>
   <include location="Icons.qrc"/>
