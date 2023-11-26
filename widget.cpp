@@ -4,6 +4,8 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QTime>
+#include <QToolButton>
+#include <QMessageBox>
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -20,6 +22,9 @@ Widget::Widget(QWidget *parent)
     ui->pushButtonNext->setIcon(style()->standardIcon(QStyle::SP_MediaSkipForward));
     ui->pushButtonMute->setIcon(style()->standardIcon(QStyle::SP_MediaVolume));
 
+
+
+
     //          Player init:
     m_player = new QMediaPlayer(this);
     m_player->setVolume(70);
@@ -33,40 +38,103 @@ Widget::Widget(QWidget *parent)
     m_playlist_model = new QStandardItemModel(this);
     ui->tableViewPlaylist->setModel(m_playlist_model);
     m_playlist_model->setHorizontalHeaderLabels(QStringList() << "Audio track" << "File path");
-ui->tableViewPlaylist->hideColumn(1);
-ui->tableViewPlaylist->horizontalHeader()->setStretchLastSection(true);
-ui->tableViewPlaylist->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->tableViewPlaylist->hideColumn(1);
+    ui->tableViewPlaylist->horizontalHeader()->setStretchLastSection(true);
+    ui->tableViewPlaylist->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     m_playlist = new QMediaPlaylist(m_player);
     m_player->setPlaylist(m_playlist);
 
+    connect(ui->pushButtonPause, &QToolButton::clicked, this->m_player, &QMediaPlayer::pause);
+    connect(ui->pushButtonStop, &QToolButton::clicked,this->m_player, &QMediaPlayer::stop);
+    connect(ui->pushButtonPrev, &QToolButton::clicked,m_playlist, &QMediaPlaylist::previous);
+    connect(ui->pushButtonNext, &QToolButton::clicked,m_playlist, &QMediaPlaylist::next);
 
+    load_playlist(DEFAULT_PLAYLIST);
+
+    //connect(m_playlist, &QMediaPlaylist::currentIndexChanged,ui->tableViewPlaylist,&QTableView::selectRow);
+    connect(m_playlist, &QMediaPlaylist::currentIndexChanged,ui->tableViewPlaylist,
+            [this](int index)
+    {
+        ui->labelComposition->setText(m_playlist_model->data(m_playlist_model->index(index,0)).toString());
+        this->setWindowTitle("Winamp - "+ui->labelComposition->text());
+        ui->tableViewPlaylist->selectRow(index);
+    }
+    );
+    connect(ui->tableViewPlaylist,&QTableView::doubleClicked, m_playlist_model,
+            [this](const QModelIndex& index){m_playlist->setCurrentIndex(index.row());m_player->play();}
+    );
+
+    connect(ui->pushButtonCLR,&QToolButton::clicked,
+            [this]()
+    {
+        m_playlist->clear();
+        m_playlist_model->clear();
+    }
+    );
+    connect(ui->pushButtonDEL, &QToolButton::clicked,
+            [this]()
+    {
+        QItemSelectionModel* selection = ui->tableViewPlaylist->selectionModel();
+        QModelIndexList rows = selection->selectedRows();
+        for(QModelIndexList::iterator it = rows.begin(); it!=rows.end();++it)
+        {
+            if(m_playlist->removeMedia(it->row()))
+            m_playlist_model->removeRows(it->row(),1);
+        }
+    }
+    );
 }
 
 Widget::~Widget()
 {
+    save_playlist(DEFAULT_PLAYLIST);
     delete m_player;
     delete ui;
 }
 
+void Widget::load_playlist(QString filename)
+{
+    QString format = filename.split('.').back();
+    m_playlist->load(QUrl::fromLocalFile(filename), format.toStdString().c_str());
+    for(int i=0;i<m_playlist->mediaCount();i++)
+    {
+        QMediaContent content = m_playlist->media(i);
+        QString url = content.canonicalUrl().url();
+        QList<QStandardItem*> items;
+        items.append(new QStandardItem(QDir(url).dirName()));
+        items.append(new QStandardItem(url));
+        m_playlist_model->appendRow(items);
+    }
+
+}
+
+void Widget::save_playlist(QString filename)
+{
+    QString format = filename.split('.').last();
+    m_playlist->save(QUrl::fromLocalFile(filename), format.toStdString().c_str());
+
+}
+
+
 
 void Widget::on_pushButtonOpen_clicked()
 {
-//    QString file = QFileDialog::getOpenFileName
-//            (
-//                this,               //родительское окно
-//                tr("Open file"),    // заголовок окна диалога
-//                "C:\\Роман\\Music",            // Рабочий каталог
-//                tr("Audio files (*.mp3 *.flac)")
-//                );
-//    ui->labelComposition->setText(file.split('/').last());
-//    this->setWindowTitle(QString("Winamp - ").append(file.split('/').last()));
-//    m_player->setMedia(QUrl::fromLocalFile(file));
+    //    QString file = QFileDialog::getOpenFileName
+    //            (
+    //                this,               //родительское окно
+    //                tr("Open file"),    // заголовок окна диалога
+    //                "C:\\Роман\\Music",            // Рабочий каталог
+    //                tr("Audio files (*.mp3 *.flac)")
+    //                );
+    //    ui->labelComposition->setText(file.split('/').last());
+    //    this->setWindowTitle(QString("Winamp - ").append(file.split('/').last()));
+    //    m_player->setMedia(QUrl::fromLocalFile(file));
 
     QStringList files = QFileDialog::getOpenFileNames(
                 this,
                 "Open files",
-                 "C:\\Роман\\Music",
+                "C:\\ROMAN\\Music",
                 "Audio files (*.mp3 *.flac)"
                 );
     for(QString filesPath: files)
@@ -119,14 +187,29 @@ void Widget::on_pushButtonMute_clicked()
 }
 
 
-void Widget::on_pushButtonPrev_clicked()
+//void Widget::on_pushButtonPrev_clicked()
+//{
+//    m_playlist->previous();
+//}
+
+
+//void Widget::on_pushButtonNext_clicked()
+//{
+//    m_playlist->next();
+//}
+
+
+void Widget::on_checkBoxLoop_stateChanged(int arg1)
 {
-    m_playlist->previous();
+    m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Sequential);
+    if(ui->checkBoxLoop->checkState())m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Loop);
+    if(ui->checkBoxShuffle->checkState())m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Random);
 }
 
-
-void Widget::on_pushButtonNext_clicked()
+void Widget::on_checkBoxShuffle_stateChanged(int arg1)
 {
-    m_playlist->next();
+    m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Sequential);
+    if(ui->checkBoxLoop->checkState())m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Loop);
+    if(ui->checkBoxShuffle->checkState())m_playlist->setPlaybackMode(QMediaPlaylist::PlaybackMode::Random);
 }
 
