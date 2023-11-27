@@ -30,6 +30,10 @@ Widget::Widget(QWidget *parent)
     m_player->setVolume(70);
     ui->labelVolume->setText(QString("Volume: ").append(QString::number(m_player->volume())));
     ui->horizontalSliderVolume->setValue(m_player->volume());
+    ui->tableViewPlaylist->setSelectionBehavior(QAbstractItemView::SelectRows);
+    this->setFixedSize(800,600);
+
+
 
     connect(m_player, &QMediaPlayer::positionChanged,this,&Widget::on_position_changed);
     connect(m_player, &QMediaPlayer::durationChanged,this,&Widget::on_duration_changed);
@@ -80,7 +84,7 @@ Widget::Widget(QWidget *parent)
         for(QModelIndexList::iterator it = rows.begin(); it!=rows.end();++it)
         {
             if(m_playlist->removeMedia(it->row()))
-            m_playlist_model->removeRows(it->row(),1);
+                m_playlist_model->removeRows(it->row(),1);
         }
     }
     );
